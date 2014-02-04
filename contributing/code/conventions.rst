@@ -29,7 +29,7 @@ When an object has a "main" many relation with related "things"
 The usage of these methods are only allowed when it is clear that there
 is a main relation:
 
-* a ``CookieJar`` has many ``Cookie``s;
+* a ``CookieJar`` has many ``Cookie`` objects;
 
 * a Service ``Container`` has many services and many parameters (as services
   is the main relation, we use the naming convention for this relation);
@@ -40,19 +40,39 @@ is a main relation:
 For many relations where the convention does not apply, the following methods
 must be used instead (where ``XXX`` is the name of the related thing):
 
-============== =================
-Main Relation  Other Relations
-============== =================
-``get()``      ``getXXX()``
-``set()``      ``setXXX()``
-``has()``      ``hasXXX()``
-``all()``      ``getXXXs()``
-``replace()``  ``setXXXs()``
-``remove()``   ``removeXXX()``
-``clear()``    ``clearXXX()``
-``isEmpty()``  ``isEmptyXXX()``
-``add()``      ``addXXX()``
-``register()`` ``registerXXX()``
-``count()``    ``countXXX()``
-``keys()``     n/a
-============== =================
++----------------+-------------------+
+| Main Relation  | Other Relations   |
++================+===================+
+| ``get()``      | ``getXXX()``      |
++----------------+-------------------+
+| ``set()``      | ``setXXX()``      |
++----------------+-------------------+
+| n/a            | ``replaceXXX()``  |
++----------------+-------------------+
+| ``has()``      | ``hasXXX()``      |
++----------------+-------------------+
+| ``all()``      | ``getXXXs()``     |
++----------------+-------------------+
+| ``replace()``  | ``setXXXs()``     |
++----------------+-------------------+
+| ``remove()``   | ``removeXXX()``   |
++----------------+-------------------+
+| ``clear()``    | ``clearXXX()``    |
++----------------+-------------------+
+| ``isEmpty()``  | ``isEmptyXXX()``  |
++----------------+-------------------+
+| ``add()``      | ``addXXX()``      |
++----------------+-------------------+
+| ``register()`` | ``registerXXX()`` |
++----------------+-------------------+
+| ``count()``    | ``countXXX()``    |
++----------------+-------------------+
+| ``keys()``     | n/a               |
++----------------+-------------------+
+
+.. note::
+
+    While "setXXX" and "replaceXXX" are very similar, there is one notable
+    difference: "setXXX" may replace, or add new elements to the relation.
+    "replaceXXX" on the other hand is specifically forbidden to add new
+    elements, but most throw an exception in these cases.

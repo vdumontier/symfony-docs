@@ -2,25 +2,22 @@ The Architecture
 ================
 
 You are my hero! Who would have thought that you would still be here after the
-first three parts? Your efforts will be well-rewarded soon. The first three
-parts didn't look too deeply at the architecture of the framework. As it makes
-Symfony2 stand apart from the framework crowd, let's dive into it now.
+first three parts? Your efforts will be well rewarded soon. The first three
+parts didn't look too deeply at the architecture of the framework. Because it
+makes Symfony2 stand apart from the framework crowd, let's dive into the
+architecture now.
 
-.. index::
-   single: Directory Structure
+Understanding the Directory Structure
+-------------------------------------
 
-The Directory Structure
------------------------
+The directory structure of a Symfony2 :term:`application` is rather flexible,
+but the directory structure of the *Standard Edition* distribution reflects
+the typical and recommended structure of a Symfony2 application:
 
-The directory structure of a Symfony2 :term:`application` is rather flexible
-but the directory structure of the sandbox reflects the typical and recommended
-structure of a Symfony2 application:
-
-* ``app/``: This directory contains the application configuration;
-
-* ``src/``: All the PHP code is stored under this directory;
-
-* ``web/``: This should be the web root directory.
+* ``app/``:    The application configuration;
+* ``src/``:    The project's PHP code;
+* ``vendor/``: The third-party dependencies;
+* ``web/``:    The web root directory.
 
 The Web Directory
 ~~~~~~~~~~~~~~~~~
@@ -30,18 +27,21 @@ stylesheets, and JavaScript files. It is also where each :term:`front controller
 lives::
 
     // web/app.php
+    require_once __DIR__.'/../app/bootstrap.php';
     require_once __DIR__.'/../app/AppKernel.php';
 
     use Symfony\Component\HttpFoundation\Request;
 
     $kernel = new AppKernel('prod', false);
-    $kernel->handle(new Request())->send();
+    $kernel->handle(Request::createFromGlobals())->send();
+
+The kernel first requires the ``bootstrap.php`` file, which bootstraps the
+framework and registers the autoloader (see below).
 
 Like any front controller, ``app.php`` uses a Kernel Class, ``AppKernel``, to
 bootstrap the application.
 
-.. index::
-   single: Kernel
+.. _the-app-dir:
 
 The Application Directory
 ~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -49,84 +49,67 @@ The Application Directory
 The ``AppKernel`` class is the main entry point of the application
 configuration and as such, it is stored in the ``app/`` directory.
 
-This class must implement four methods:
+This class must implement two methods:
 
-* ``registerRootDir()``: Returns the configuration root directory;
+* ``registerBundles()`` must return an array of all bundles needed to run the
+  application;
 
-* ``registerBundles()``: Returns an array of all bundles needed to run the
-  application (notice the reference to
-  ``Application\HelloBundle\HelloBundle``);
+* ``registerContainerConfiguration()`` loads the application configuration
+  (more on this later).
 
-* ``registerBundleDirs()``: Returns an array associating namespaces and their
-  home directories;
+PHP autoloading can be configured via ``app/autoload.php``::
 
-* ``registerContainerConfiguration()``: Returns the main configuration object
-  (more on this later);
-
-Have a look at the default implementation of these methods to better
-understand the flexibility of the framework.
-
-To make things work together, the kernel requires one file from the ``src/``
-directory::
-
-    // app/AppKernel.php
-    require_once __DIR__.'/../src/autoload.php';
-
-The Source Directory
-~~~~~~~~~~~~~~~~~~~~
-
-The ``src/autoload.php`` file is responsible for autoloading all the files
-stored in the ``src/`` directory::
-
-    // src/autoload.php
-    $vendorDir = __DIR__.'/vendor';
-
-    require_once $vendorDir.'/symfony/src/Symfony/Component/HttpFoundation/UniversalClassLoader.php';
-
-    use Symfony\Component\HttpFoundation\UniversalClassLoader;
+    // app/autoload.php
+    use Symfony\Component\ClassLoader\UniversalClassLoader;
 
     $loader = new UniversalClassLoader();
     $loader->registerNamespaces(array(
-        'Symfony'                        => $vendorDir.'/symfony/src',
-        'Application'                    => __DIR__,
-        'Bundle'                         => __DIR__,
-        'Doctrine\\Common\\DataFixtures' => $vendorDir.'/doctrine-data-fixtures/lib',
-        'Doctrine\\Common'               => $vendorDir.'/doctrine-common/lib',
-        'Doctrine\\DBAL\\Migrations'     => $vendorDir.'/doctrine-migrations/lib',
-        'Doctrine\\ODM\\MongoDB'         => $vendorDir.'/doctrine-mongodb/lib',
-        'Doctrine\\DBAL'                 => $vendorDir.'/doctrine-dbal/lib',
-        'Doctrine'                       => $vendorDir.'/doctrine/lib',
-        'Zend'                           => $vendorDir.'/zend/library',
+        'Symfony'          => array(__DIR__.'/../vendor/symfony/src', __DIR__.'/../vendor/bundles'),
+        'Sensio'           => __DIR__.'/../vendor/bundles',
+        'JMS'              => __DIR__.'/../vendor/bundles',
+        'Doctrine\\Common' => __DIR__.'/../vendor/doctrine-common/lib',
+        'Doctrine\\DBAL'   => __DIR__.'/../vendor/doctrine-dbal/lib',
+        'Doctrine'         => __DIR__.'/../vendor/doctrine/lib',
+        'Monolog'          => __DIR__.'/../vendor/monolog/src',
+        'Assetic'          => __DIR__.'/../vendor/assetic/src',
+        'Acme'             => __DIR__.'/../src',
     ));
     $loader->registerPrefixes(array(
-        'Swift_' => $vendorDir.'/swiftmailer/lib/classes',
-        'Twig_'  => $vendorDir.'/twig/lib',
+        'Twig_Extensions_' => __DIR__.'/../vendor/twig-extensions/lib',
+        'Twig_'            => __DIR__.'/../vendor/twig/lib',
+        'Swift_'           => __DIR__.'/../vendor/swiftmailer/lib/classes',
     ));
     $loader->register();
 
-The ``UniversalClassLoader`` from Symfony2 is used to autoload files that
-respect either the technical interoperability `standards`_ for PHP 5.3
-namespaces or the PEAR naming `convention`_ for classes. As you can see
-here, all dependencies are stored under the ``vendor/`` directory, but this is
-just a convention. You can store them wherever you want, globally on your
-server or locally in your projects.
+The :class:`Symfony\\Component\\ClassLoader\\UniversalClassLoader` is used to
+autoload files that respect either the technical interoperability `standards`_
+for PHP 5.3 namespaces or the PEAR naming `convention`_ for classes. As you
+can see here, all dependencies are stored under the ``vendor/`` directory, but
+this is just a convention. You can store them wherever you want, globally on
+your server or locally in your projects.
 
-.. index::
-   single: Bundles
+.. note::
 
-The Bundle System
------------------
+    If you want to learn more about the flexibility of the Symfony2
+    autoloader, read the ":doc:`/cookbook/tools/autoloader`" recipe in the
+    cookbook.
 
-This section starts to scratch the surface of one of the greatest and most
-powerful features of Symfony2, the :term:`bundle` system.
+Understanding the Bundle System
+-------------------------------
+
+This section introduces one of the greatest and most powerful features of
+Symfony2, the :term:`bundle` system.
 
 A bundle is kind of like a plugin in other software. So why is it called
-bundle and not plugin? Because *everything* is a bundle in Symfony2, from
+*bundle* and not *plugin*? Because *everything* is a bundle in Symfony2, from
 the core framework features to the code you write for your application.
-Bundles are first-class citizens in Symfony2. This gives you the flexibility to
-use pre-built features packaged in third-party bundles or to distribute your
-own bundles. It makes it easy to pick and choose which features to enable
+Bundles are first-class citizens in Symfony2. This gives you the flexibility
+to use pre-built features packaged in third-party bundles or to distribute
+your own bundles. It makes it easy to pick and choose which features to enable
 in your application and optimize them the way you want.
+
+Registering a Bundle
+~~~~~~~~~~~~~~~~~~~~
 
 An application is made up of bundles as defined in the ``registerBundles()``
 method of the ``AppKernel`` class::
@@ -136,277 +119,184 @@ method of the ``AppKernel`` class::
     {
         $bundles = array(
             new Symfony\Bundle\FrameworkBundle\FrameworkBundle(),
+            new Symfony\Bundle\SecurityBundle\SecurityBundle(),
             new Symfony\Bundle\TwigBundle\TwigBundle(),
-
-            // enable third-party bundles
-            new Symfony\Bundle\ZendBundle\ZendBundle(),
+            new Symfony\Bundle\MonologBundle\MonologBundle(),
             new Symfony\Bundle\SwiftmailerBundle\SwiftmailerBundle(),
             new Symfony\Bundle\DoctrineBundle\DoctrineBundle(),
-            //new Symfony\Bundle\DoctrineMigrationsBundle\DoctrineMigrationsBundle(),
-            //new Symfony\Bundle\DoctrineMongoDBBundle\DoctrineMongoDBBundle(),
-
-            // register your bundles
-            new Application\HelloBundle\HelloBundle(),
+            new Symfony\Bundle\AsseticBundle\AsseticBundle(),
+            new Sensio\Bundle\FrameworkExtraBundle\SensioFrameworkExtraBundle(),
+            new JMS\SecurityExtraBundle\JMSSecurityExtraBundle(),
+            new Acme\DemoBundle\AcmeDemoBundle(),
         );
 
-        if ($this->isDebug()) {
+        if (in_array($this->getEnvironment(), array('dev', 'test'))) {
             $bundles[] = new Symfony\Bundle\WebProfilerBundle\WebProfilerBundle();
+            $bundles[] = new Symfony\Bundle\WebConfiguratorBundle\SymfonyWebConfiguratorBundle();
         }
 
         return $bundles;
     }
 
-In addition to the ``HelloBundle`` that we have already talked about, notice
-that the kernel also enables ``FrameworkBundle``, ``DoctrineBundle``,
-``SwiftmailerBundle``, and ``ZendBundle``. They are all part of the core
-framework.
+In addition to the ``AcmeDemoBundle`` that we have already talked about, notice
+that the kernel also enables the ``FrameworkBundle``, ``DoctrineBundle``,
+``SwiftmailerBundle``, and ``AsseticBundle`` bundles. They are all part of
+the core framework.
+
+Configuring a Bundle
+~~~~~~~~~~~~~~~~~~~~
 
 Each bundle can be customized via configuration files written in YAML, XML, or
 PHP. Have a look at the default configuration:
 
-.. configuration-block::
+.. code-block:: yaml
 
-    .. code-block:: yaml
+    # app/config/config.yml
+    imports:
+        - { resource: parameters.ini }
+        - { resource: security.yml }
 
-        # app/config/config.yml
-        app.config:
-            charset:       UTF-8
-            error_handler: null
-            csrf_secret:   xxxxxxxxxx
-            router:        { resource: "%kernel.root_dir%/config/routing.yml" }
-            validation:    { enabled: true, annotations: true }
-            templating:
-                #assets_version: SomeVersionScheme
-            session:
-                default_locale: en
-                lifetime: 3600
+    framework:
+        secret:        %csrf_secret%
+        charset:       UTF-8
+        error_handler: null
+        csrf_protection:
+            enabled: true
+        router:        { resource: "%kernel.root_dir%/config/routing.yml" }
+        validation:    { enabled: true, annotations: true }
+        templating:    { engines: ['twig'] } #assets_version: SomeVersionScheme
+        session:
+            default_locale: %locale%
+            lifetime:       3600
+            auto_start:     true
 
-        ## Twig Configuration
-        #twig.config:
-        #    auto_reload: true
+    # Twig Configuration
+    twig:
+        debug:            %kernel.debug%
+        strict_variables: %kernel.debug%
 
-        ## Doctrine Configuration
-        #doctrine.dbal:
-        #    dbname:   xxxxxxxx
-        #    user:     xxxxxxxx
-        #    password: ~
-        #doctrine.orm: ~
+    # Assetic Configuration
+    assetic:
+        debug:          %kernel.debug%
+        use_controller: false
 
-        ## Swiftmailer Configuration
-        #swiftmailer.config:
-        #    transport:  smtp
-        #    encryption: ssl
-        #    auth_mode:  login
-        #    host:       smtp.gmail.com
-        #    username:   xxxxxxxx
-        #    password:   xxxxxxxx
+    # Doctrine Configuration
+    doctrine:
+        dbal:
+            driver:   %database_driver%
+            host:     %database_host%
+            dbname:   %database_name%
+            user:     %database_user%
+            password: %database_password%
 
-    .. code-block:: xml
+        orm:
+            auto_generate_proxy_classes: %kernel.debug%
+            default_entity_manager: default
+            mappings:
+                auto_mapping: true
 
-        <!-- app/config/config.xml -->
-        <app:config csrf-secret="xxxxxxxxxx" charset="UTF-8" error-handler="null">
-            <app:router resource="%kernel.root_dir%/config/routing.xml" />
-            <app:validation enabled="true" annotations="true" />
-            <app:session default-locale="en" lifetime="3600" />
-        </app:config>
+    # Swiftmailer Configuration
+    swiftmailer:
+        transport: %mailer_transport%
+        host:      %mailer_host%
+        username:  %mailer_user%
+        password:  %mailer_password%
 
-        <!-- Twig Configuration -->
-        <!--
-        <twig:config auto_reload="true" />
-        -->
+    jms_security_extra:
+        secure_controllers:  true
+        secure_all_services: false
 
-        <!-- Doctrine Configuration -->
-        <!--
-        <doctrine:dbal dbname="xxxxxxxx" user="xxxxxxxx" password="" />
-        <doctrine:orm />
-        -->
-
-        <!-- Swiftmailer Configuration -->
-        <!--
-        <swiftmailer:config
-            transport="smtp"
-            encryption="ssl"
-            auth_mode="login"
-            host="smtp.gmail.com"
-            username="xxxxxxxx"
-            password="xxxxxxxx" />
-        -->
-
-    .. code-block:: php
-
-        // app/config/config.php
-        $container->loadFromExtension('app', 'config', array(
-            'charset'       => 'UTF-8',
-            'error_handler' => null,
-            'csrf-secret'   => 'xxxxxxxxxx',
-            'router'        => array('resource' => '%kernel.root_dir%/config/routing.php'),
-            'validation'    => array('enabled' => true, 'annotations' => true),
-            'templating'    => array(
-                #'assets_version' => "SomeVersionScheme",
-            ),
-            'session' => array(
-                'default_locale' => "en",
-                'lifetime' => "3600",
-            ),
-        ));
-
-        // Twig Configuration
-        /*
-        $container->loadFromExtension('twig', 'config', array('auto_reload' => true));
-        */
-
-        // Doctrine Configuration
-        /*
-        $container->loadFromExtension('doctrine', 'dbal', array(
-            'dbname'   => 'xxxxxxxx',
-            'user'     => 'xxxxxxxx',
-            'password' => '',
-        ));
-        $container->loadFromExtension('doctrine', 'orm');
-        */
-
-        // Swiftmailer Configuration
-        /*
-        $container->loadFromExtension('swiftmailer', 'config', array(
-            'transport'  => "smtp",
-            'encryption' => "ssl",
-            'auth_mode'  => "login",
-            'host'       => "smtp.gmail.com",
-            'username'   => "xxxxxxxx",
-            'password'   => "xxxxxxxx",
-        ));
-        */
-
-Each entry like ``app.config`` defines the configuration for a bundle.
+Each entry like ``framework`` defines the configuration for a specific bundle.
+For example, ``framework`` configures the ``FrameworkBundle`` while ``swiftmailer``
+configures the ``SwiftmailerBundle``.
 
 Each :term:`environment` can override the default configuration by providing a
-specific configuration file:
+specific configuration file. For example, the ``dev`` environment loads the
+``config_dev.yml`` file, which loads the main configuration (i.e. ``config.yml``)
+and then modifies it to add some debugging tools:
 
-.. configuration-block::
+.. code-block:: yaml
 
-    .. code-block:: yaml
+    # app/config/config_dev.yml
+    imports:
+        - { resource: config.yml }
 
-        # app/config/config_dev.yml
-        imports:
-            - { resource: config.yml }
+    framework:
+        router:   { resource: "%kernel.root_dir%/config/routing_dev.yml" }
+        profiler: { only_exceptions: false }
 
-        app.config:
-            router:   { resource: "%kernel.root_dir%/config/routing_dev.yml" }
-            profiler: { only_exceptions: false }
+    web_profiler:
+        toolbar: true
+        intercept_redirects: false
 
-        webprofiler.config:
-            toolbar: true
-            intercept_redirects: true
+    zend:
+        logger:
+            priority: debug
+            path:     %kernel.logs_dir%/%kernel.environment%.log
 
-        zend.config:
-            logger:
-                priority: debug
-                path:     %kernel.logs_dir%/%kernel.environment%.log
+    assetic:
+        use_controller: true
 
-    .. code-block:: xml
+Extending a Bundle
+~~~~~~~~~~~~~~~~~~
 
-        <!-- app/config/config_dev.xml -->
-        <imports>
-            <import resource="config.xml" />
-        </imports>
+In addition to being a nice way to organize and configure your code, a bundle
+can extend another bundle. Bundle inheritance allows you to override any existing
+bundle in order to customize its controllers, templates, or any of its files.
+This is where the logical names come in handy, because they abstract where
+the resource is actually stored.
 
-        <app:config>
-            <app:router resource="%kernel.root_dir%/config/routing_dev.xml" />
-            <app:profiler only-exceptions="false" />
-        </app:config>
+When you want to reference a file from a bundle, use this notation:
+``@BUNDLE_NAME/path/to/file``; Symfony2 will resolve ``@BUNDLE_NAME``
+to the real path to the bundle. For instance, the logical path
+``@AcmeDemoBundle/Controller/DemoController.php`` would be converted to
+``src/Acme/DemoBundle/Controller/DemoController.php``.
 
-        <webprofiler:config
-            toolbar="true"
-            intercept-redirects="true"
-        />
+For controllers, you need to reference method names using the format
+``BUNDLE_NAME:CONTROLLER_NAME:ACTION_NAME``. For instance,
+``AcmeDemoBundle:Welcome:index`` maps to the ``indexAction`` method from the
+``Acme\DemoBundle\Controller\WelcomeController`` class.
 
-        <zend:config>
-            <zend:logger priority="info" path="%kernel.logs_dir%/%kernel.environment%.log" />
-        </zend:config>
-
-    .. code-block:: php
-
-        // app/config/config_dev.php
-        $loader->import('config.php');
-
-        $container->loadFromExtension('app', 'config', array(
-            'router'   => array('resource' => '%kernel.root_dir%/config/routing_dev.php'),
-            'profiler' => array('only-exceptions' => false),
-        ));
-
-        $container->loadFromExtension('webprofiler', 'config', array(
-            'toolbar' => true,
-            'intercept-redirects' => true,
-        ));
-
-        $container->loadFromExtension('zend', 'config', array(
-            'logger' => array(
-                'priority' => 'info',
-                'path'     => '%kernel.logs_dir%/%kernel.environment%.log',
-            ),
-        ));
-
-As we have seen in the previous part, an application is made up of bundles
-defined in the ``registerBundles()`` method. But how does Symfony2 know where
-to look for bundles? Symfony2 is quite flexible in this regard. The
-``registerBundleDirs()`` method must return an associative array that maps
-namespaces to any valid directory (local or global ones)::
-
-    public function registerBundleDirs()
-    {
-        return array(
-            'Application'     => __DIR__.'/../src/Application',
-            'Bundle'          => __DIR__.'/../src/Bundle',
-            'Symfony\\Bundle' => __DIR__.'/../src/vendor/symfony/src/Symfony/Bundle',
-        );
-    }
-
-So, when you reference the ``HelloBundle`` in a controller name or in a template
-name, Symfony2 will look for it under the given directories.
+For templates, the logical name ``AcmeDemoBundle:Welcome:index.html.twig`` is
+converted to the file path ``src/Acme/DemoBundle/Resources/views/Welcome/index.html.twig``.
+Templates become even more interesting when you realize they don't need to be
+stored on the filesystem. You can easily store them in a database table for
+instance.
 
 Do you understand now why Symfony2 is so flexible? Share your bundles between
 applications, store them locally or globally, your choice.
 
-.. index::
-   single: Vendors
+.. _using-vendors:
 
 Using Vendors
 -------------
 
 Odds are that your application will depend on third-party libraries. Those
-should be stored in the ``src/vendor/`` directory. This directory already
-contains the Symfony2 libraries, the SwiftMailer library, the Doctrine ORM,
-the Twig templating system, and a selection of the Zend Framework classes.
+should be stored in the ``vendor/`` directory. This directory already contains
+the Symfony2 libraries, the SwiftMailer library, the Doctrine ORM, the Twig
+templating system, and some other third party libraries and bundles.
 
-.. index::
-   single: Configuration Cache
-   single: Logs
-
-Cache and Logs
---------------
+Understanding the Cache and Logs
+--------------------------------
 
 Symfony2 is probably one of the fastest full-stack frameworks around. But how
 can it be so fast if it parses and interprets tens of YAML and XML files for
-each request? This is partly due to its cache system. The application
+each request? The speed is partly due to its cache system. The application
 configuration is only parsed for the very first request and then compiled down
-to plain PHP code stored in the ``cache/`` application directory. In the
-development environment, Symfony2 is smart enough to flush the cache when you
-change a file. But in the production environment, it is your responsibility
-to clear the cache when you update your code or change its configuration.
+to plain PHP code stored in the ``app/cache/`` directory. In the development
+environment, Symfony2 is smart enough to flush the cache when you change a
+file. But in the production environment, it is your responsibility to clear
+the cache when you update your code or change its configuration.
 
 When developing a web application, things can go wrong in many ways. The log
-files in the ``logs/`` application directory tell you everything about the
-requests and help you fix the problem quickly.
+files in the ``app/logs/`` directory tell you everything about the requests
+and help you fix the problem quickly.
 
-.. index::
-   single: CLI
-   single: Command Line
+Using the Command Line Interface
+--------------------------------
 
-The Command Line Interface
---------------------------
-
-Each application comes with a command line interface tool (``console``) that
-helps you maintain your application. It provides commands that boost your
+Each application comes with a command line interface tool (``app/console``)
+that helps you maintain your application. It provides commands that boost your
 productivity by automating tedious and repetitive tasks.
 
 Run it without any arguments to learn more about its capabilities:
@@ -425,15 +315,14 @@ Final Thoughts
 --------------
 
 Call me crazy, but after reading this part, you should be comfortable with
-moving things around and making Symfony2 work for you. Everything is done in
-Symfony2 to get out of your way. So, feel free to rename and move directories
+moving things around and making Symfony2 work for you. Everything in Symfony2
+is designed to get out of your way. So, feel free to rename and move directories
 around as you see fit.
 
 And that's all for the quick tour. From testing to sending emails, you still
-need to learn a lot to become a Symfony2 master. Ready to dig into these topics
-now? Look no further - go to the official `guides`_ page and pick any topic you
-want.
+need to learn a lot to become a Symfony2 master. Ready to dig into these
+topics now? Look no further - go to the official :doc:`/book/index` and pick
+any topic you want.
 
-.. _standards:  http://groups.google.com/group/php-standards/web/psr-0-final-proposal
-.. _convention: http://pear.php.net/
-.. _guides:     http://www.symfony-reloaded.org/learn
+.. _standards:               http://groups.google.com/group/php-standards/web/psr-0-final-proposal
+.. _convention:              http://pear.php.net/
